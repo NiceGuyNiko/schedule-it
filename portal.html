@@ -24,30 +24,53 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#101522;padding:12px;
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let accessToken='';
+// Session lives in sessionStorage: survives reloads in this tab, cleared when the tab closes.
+const SESSION_KEY='scheduleit.session';
+let session=null;
+try{session=JSON.parse(sessionStorage.getItem(SESSION_KEY))}catch{}
+function saveSession(s){session=s;try{s?sessionStorage.setItem(SESSION_KEY,JSON.stringify(s)):sessionStorage.removeItem(SESSION_KEY)}catch{}}
 const msg=text=>$('message').textContent=text;
 function view(name){for(const id of ['login','register','workspace'])$(id).hidden=id!==name;msg('')}
-async function api(route,body){
- const response=await fetch('/api/'+route,{method:'POST',headers:{'content-type':'application/json',...(accessToken?{authorization:'Bearer '+accessToken}:{})},body:JSON.stringify(body)});
- const result=await response.json().catch(()=>({error:'Unexpected server response'}));
- if(!response.ok)throw Error(result.error||'Request failed');
+async function request(route,body,token){
+ const response=await fetch('/api/'+route,{method:'POST',headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});
+ const result=await response.json().catch(()=>({error:'Unexpected server response ('+response.status+')'}));
+ if(!response.ok){const err=Error((result.error||'Request failed')+(result.ref?' (ref '+result.ref+')':''));err.status=response.status;throw err}
  return result;
+}
+let refreshing=null;
+function refresh(){
+ refreshing??=request('refresh',{refresh_token:session.refresh_token}).then(saveSession,err=>{saveSession(null);throw err}).finally(()=>refreshing=null);
+ return refreshing;
+}
+// Authenticated call: refreshes shortly before expiry, and once more if the server still answers 401.
+async function api(route,body){
+ if(!session)throw Error('Login required');
+ if(session.expires_at&&session.expires_at*1000-Date.now()<60000)await refresh();
+ try{return await request(route,body,session.access_token)}
+ catch(err){if(err.status!==401||!session)throw err;await refresh();return request(route,body,session.access_token)}
+}
+function signedOut(text){saveSession(null);$('guestNav').hidden=false;$('loginForm').reset();view('login');if(text)msg(text)}
+async function enterWorkspace(){
+ const me=await api('me',{});$('greeting').textContent='Signed in as '+me.username;
+ $('guestNav').hidden=true;$('showAdmin').hidden=me.role!=='admin';view('workspace');
 }
 $('showLogin').onclick=()=>view('login');
 $('showRegister').onclick=()=>view('register');
 $('registerForm').onsubmit=async e=>{
  e.preventDefault();const button=e.submitter;button.disabled=true;
- try{const form=Object.fromEntries(new FormData(e.target));await api('register',form);e.target.reset();view('login');msg('Account created. Log in to continue.')}
+ try{const form=Object.fromEntries(new FormData(e.target));const r=await request('register',form);e.target.reset();view('login');msg(r.role==='admin'?'Administrator account created. Log in to continue.':'Account created. Log in to continue.')}
  catch(err){msg(err.message)}finally{button.disabled=false}
 };
 $('loginForm').onsubmit=async e=>{
  e.preventDefault();const button=e.submitter;button.disabled=true;
- try{const form=Object.fromEntries(new FormData(e.target));const result=await api('login',form);accessToken=result.access_token;
- const me=await api('me',{});$('greeting').textContent='Signed in as '+me.username;
- $('guestNav').hidden=true;$('showAdmin').hidden=me.role!=='admin';view('workspace');
- }catch(err){accessToken='';msg(err.message)}finally{button.disabled=false}
+ try{const form=Object.fromEntries(new FormData(e.target));saveSession(await request('login',form));await enterWorkspace()}
+ catch(err){saveSession(null);msg(err.message)}finally{button.disabled=false}
 };
-$('logout').onclick=()=>{accessToken='';$('guestNav').hidden=false;$('loginForm').reset();view('login')};
+$('logout').onclick=async()=>{
+ const token=session?.access_token;signedOut('Logged out.');
+ if(token)request('logout',{},token).catch(()=>{});
+};
+if(session)enterWorkspace().catch(err=>signedOut(err.status===401?'Session expired. Please log in again.':err.message));
 $('showSchedule').onclick=()=>{$('schedulePanel').hidden=false;$('adminPanel').hidden=true};
 $('showAdmin').onclick=()=>{$('schedulePanel').hidden=true;$('adminPanel').hidden=false};
 $('generateInvite').onclick=async e=>{
