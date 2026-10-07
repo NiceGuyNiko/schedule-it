@@ -29,3 +29,5 @@ Do not test real passwords or invitation codes on a public preview until the bra
 
 ## Deployment trigger
 - Branch deploy requested after enabling feature/accounts-platform in Netlify.
+
+- Retried deployment trigger after correcting Netlify's selected branch name.
