@@ -37,7 +37,8 @@ async function handle(event){
    const isBootstrap=!!bootstrap&&typeof invite==='string'&&invite.length===bootstrap.length&&timingSafeEqual(Buffer.from(invite),Buffer.from(bootstrap));
    let invitation=null;
    if(isBootstrap){
-    const {count}=await db.from('profiles').select('id',{count:'exact',head:true});
+    const {count,error:countError}=await db.from('profiles').select('id',{count:'exact',head:true});
+    if(countError)throw countError;
     if(count!==0)return json(403,{error:'Invitation invalid'});
    } else {
     const {data}=await db.from('invitations').select('*').eq('code_hash',hash(invite)).is('used_at',null).is('revoked_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();
@@ -49,10 +50,10 @@ async function handle(event){
    if(createError)return json(409,{error:'Unable to register this username'});
    const uid=created.user.id;
    const {error:profileError}=await db.from('profiles').insert({id:uid,username,role:isBootstrap?'admin':'user'});
-   if(profileError){await db.auth.admin.deleteUser(uid);return json(409,{error:'Username unavailable'});}
+   if(profileError){const {error:rollbackError}=await db.auth.admin.deleteUser(uid);if(rollbackError)console.error('Registration rollback failed',rollbackError);return json(409,{error:'Username unavailable'});}
    if(invitation){
     const {data:claimed,error:claimError}=await db.rpc('claim_invitation',{p_hash:hash(invite),p_user:uid});
-    if(claimError||!claimed){await db.auth.admin.deleteUser(uid);return json(409,{error:'Invitation already used'});}
+    if(claimError||!claimed){const {error:rollbackError}=await db.auth.admin.deleteUser(uid);if(rollbackError)console.error('Invitation rollback failed',rollbackError);return json(409,{error:'Invitation already used'});}
    }
    return json(201,{ok:true});
   }
