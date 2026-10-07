@@ -287,8 +287,8 @@
     </div>
 
     <div class="view-switch" aria-label="Calendar view">
-      <button data-view="day" class="active">Day</button>
-      <button data-view="week">Week</button>
+      <button data-view="day">Day</button>
+      <button data-view="week" class="active">Week</button>
       <button data-view="month">Month</button>
     </div>
 
@@ -452,7 +452,7 @@
   };
 
   const state = {
-    view: localStorage.getItem(VIEW_KEY) || 'day',
+    view: 'week',
     anchor: startOfDay(new Date()),
     events: loadEvents(),
     hiddenCategories: new Set(JSON.parse(localStorage.getItem(FILTER_KEY) || '[]')),
