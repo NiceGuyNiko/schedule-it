@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const json=(statusCode,data,extra={})=>({statusCode,headers:{'content-type':'application/json','cache-control':'no-store',...extra},body:JSON.stringify(data)});
 const hash=s=>createHash('sha256').update(s).digest('hex');
@@ -22,6 +22,7 @@ async function userFromToken(db,event){
 }
 async function handle(event){
  if(event.httpMethod!=='POST')return json(405,{error:'Method not allowed'});
+ if(Buffer.byteLength(event.body||'')>32768)return json(413,{error:'Request too large'});
  if(!process.env.SUPABASE_URL||!process.env.SUPABASE_SECRET_KEY)return json(503,{error:'Server not configured'});
  const path=(event.path||'').split('/').pop();
  const body=read(event);
@@ -33,7 +34,7 @@ async function handle(event){
    const {username,password,invite}=body;
    if(!validUsername(username)||!validPassword(password)||typeof invite!=='string')return json(400,{error:'Invalid registration details'});
    const bootstrap=process.env.BOOTSTRAP_INVITE_CODE;
-   const isBootstrap=!!bootstrap&&invite===bootstrap;
+   const isBootstrap=!!bootstrap&&typeof invite==='string'&&invite.length===bootstrap.length&&timingSafeEqual(Buffer.from(invite),Buffer.from(bootstrap));
    let invitation=null;
    if(isBootstrap){
     const {count}=await db.from('profiles').select('id',{count:'exact',head:true});
