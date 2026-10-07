@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Block Schedule</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --panel-2: #fbfbfd;
+      --text: #17171a;
+      --muted: #72727a;
+      --line: #e6e6ec;
+      --line-strong: #d8d8e0;
+      --accent: #ff3b30;
+      --shadow: 0 12px 40px rgba(0,0,0,.08);
+      --hour-h: 72px;
+      --sidebar-w: 250px;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,.92);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+      position: relative;
+      z-index: 20;
+    }
+
+    .top-left, .top-right { display: flex; align-items: center; gap: 8px; }
+    .top-right { justify-content: flex-end; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; }
+    .brand-mark {
+      width: 28px; height: 28px; border-radius: 9px;
+      background: linear-gradient(135deg, #ff3b30, #ff8a00);
+      box-shadow: 0 6px 18px rgba(255,59,48,.22);
+    }
+
+    .btn {
+      border: 1px solid var(--line-strong);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 11px;
+      min-height: 36px;
+      transition: .15s ease;
+    }
+    .btn:hover { background: #f4f4f7; }
+    .btn.primary { background: #17171a; color: #fff; border-color: #17171a; }
+    .btn.danger { color: #c92a2a; }
+    .btn.icon { width: 36px; padding: 0; display: grid; place-items: center; }
+
+    .view-switch {
+      display: inline-flex;
+      padding: 3px;
+      background: #ececf2;
+      border-radius: 11px;
+    }
+    .view-switch button {
+      border: 0; background: transparent; color: #64646c;
+      padding: 7px 15px; border-radius: 8px; font-weight: 650;
+    }
+    .view-switch button.active { background: #fff; color: #111; box-shadow: 0 1px 5px rgba(0,0,0,.08); }
+
+    .layout { min-height: 0; display: grid; grid-template-columns: var(--sidebar-w) 1fr; }
+    .sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 16px;
+      overflow-y: auto;
+    }
+    .sidebar h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .sidebar-section { margin-bottom: 24px; }
+    .filter-list { display: grid; gap: 8px; }
+    .filter-row {
+      display: flex; align-items: center; gap: 9px;
+      padding: 7px 8px; border-radius: 9px;
+    }
+    .filter-row:hover { background: #f6f6f9; }
+    .filter-row input { width: 16px; height: 16px; margin: 0; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+    .filter-name { flex: 1; font-size: 14px; }
+    .count { color: var(--muted); font-size: 12px; }
+
+    .mini-note {
+      color: var(--muted); font-size: 12px; line-height: 1.45;
+      background: #f6f6f9; border: 1px solid var(--line); border-radius: 12px; padding: 10px 11px;
+    }
+
+    .main { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto 1fr; }
+    .calendar-head {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 18px 12px;
+      display: flex; justify-content: space-between; align-items: end; gap: 16px;
+    }
+    .title-wrap .eyebrow { color: var(--muted); font-size: 12px; margin-bottom: 2px; }
+    .title-wrap h1 { margin: 0; font-size: 26px; letter-spacing: -.03em; }
+    .search {
+      width: min(280px, 32vw);
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      padding: 9px 11px;
+      background: #fafafe;
+      outline: none;
+    }
+    .search:focus { border-color: #a8a8b2; background: white; }
+
+    .calendar-shell { min-height: 0; overflow: auto; background: var(--panel); position: relative; }
+
+    /* Day */
+    .day-view { min-width: 720px; }
+    .all-day-row {
+      display: grid; grid-template-columns: 76px 1fr;
+      min-height: 44px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 7; background: var(--panel);
+    }
+    .all-day-label { padding: 13px 8px; color: var(--muted); font-size: 11px; text-align: right; border-right: 1px solid var(--line); }
+    .all-day-events { display: flex; gap: 6px; flex-wrap: wrap; padding: 6px 8px; align-content: center; }
+    .time-grid { display: grid; grid-template-columns: 76px 1fr; position: relative; }
+    .time-labels { border-right: 1px solid var(--line); }
+    .hour-label { height: var(--hour-h); padding: 0 9px; position: relative; color: #8a8a93; font-size: 11px; text-align: right; }
+    .hour-label span { position: relative; top: -7px; background: var(--panel); padding-left: 6px; }
+    .grid-area { position: relative; height: calc(var(--hour-h) * 24); background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--hour-h) - 1px), var(--line) calc(var(--hour-h) - 1px), var(--line) var(--hour-h)); }
+    .grid-area::after {
+      content: ""; position: absolute; inset: 0;
+      background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--hour-h) / 2 - 1px), rgba(0,0,0,.028) calc(var(--hour-h) / 2 - 1px), rgba(0,0,0,.028) calc(var(--hour-h) / 2), transparent calc(var(--hour-h) / 2));
+      pointer-events: none;
+    }
+
+    .event {
+      position: absolute;
+      border-left: 4px solid var(--event-color);
+      background: color-mix(in srgb, var(--event-color) 14%, white);
+      border-radius: 8px;
+      padding: 6px 8px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--event-color) 20%, transparent);
+      min-height: 20px;
+      z-index: 3;
+      user-select: none;
+    }
+    .event:hover { filter: brightness(.985); z-index: 5; }
+    .event-title { font-size: 13px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .event-time { font-size: 11px; color: #5f5f67; margin-top: 2px; white-space: nowrap; }
+    .event-tasks { display: grid; gap: 4px; margin-top: 7px; }
+    .task-check { display: flex; gap: 6px; align-items: flex-start; font-size: 11px; line-height: 1.25; }
+    .task-check input { margin: 1px 0 0; }
+    .task-check.done span { text-decoration: line-through; opacity: .55; }
+    .event-notes { font-size: 11px; color: #66666f; margin-top: 6px; line-height: 1.3; }
+
+    .now-line { position: absolute; left: 0; right: 0; height: 1.5px; background: var(--accent); z-index: 6; pointer-events: none; }
+    .now-line::before { content: ""; position: absolute; left: -5px; top: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+    .now-time { position: absolute; right: calc(100% + 7px); top: -8px; color: var(--accent); font-size: 10px; font-weight: 700; white-space: nowrap; }
+
+    /* Week */
+    .week-view { min-width: 1050px; }
+    .week-head { display: grid; grid-template-columns: 64px repeat(7, 1fr); position: sticky; top: 0; z-index: 9; background: var(--panel); border-bottom: 1px solid var(--line); }
+    .week-head-spacer { border-right: 1px solid var(--line); }
+    .week-day-head { text-align: center; padding: 9px 4px 8px; border-right: 1px solid var(--line); }
+    .week-day-head:last-child { border-right: 0; }
+    .week-day-head .dow { text-transform: uppercase; font-size: 10px; letter-spacing: .08em; color: var(--muted); }
+    .week-day-head .dom { font-size: 22px; font-weight: 720; margin-top: 1px; }
+    .week-day-head.today .dom { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; background: var(--accent); }
+    .week-allday { display: grid; grid-template-columns: 64px repeat(7,1fr); min-height: 40px; border-bottom: 1px solid var(--line); position: sticky; top: 58px; z-index: 8; background: var(--panel); }
+    .week-allday-label { font-size: 10px; color: var(--muted); padding: 12px 5px; text-align: right; border-right: 1px solid var(--line); }
+    .week-allday-cell { border-right: 1px solid var(--line); padding: 4px; display: grid; gap: 3px; align-content: start; }
+    .week-grid { display: grid; grid-template-columns: 64px 1fr; }
+    .week-time-labels { border-right: 1px solid var(--line); }
+    .week-columns { display: grid; grid-template-columns: repeat(7,1fr); height: calc(var(--hour-h) * 24); }
+    .week-col { position: relative; border-right: 1px solid var(--line); background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--hour-h) - 1px), var(--line) calc(var(--hour-h) - 1px), var(--line) var(--hour-h)); }
+    .week-col:last-child { border-right: 0; }
+    .week-col .event { padding: 4px 5px; border-left-width: 3px; border-radius: 6px; }
+    .week-col .event-title { font-size: 11px; }
+    .week-col .event-time { font-size: 10px; }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      min-width: 0; max-width: 100%;
+      border-radius: 6px; padding: 4px 6px;
+      background: color-mix(in srgb, var(--event-color) 15%, white);
+      color: #28282d; border-left: 3px solid var(--event-color);
+      font-size: 11px; font-weight: 650; cursor: pointer;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Month */
+    .month-view { min-width: 820px; display: grid; grid-template-rows: auto 1fr; height: 100%; }
+    .month-weekdays { display: grid; grid-template-columns: repeat(7,1fr); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; background: var(--panel); }
+    .month-weekdays div { padding: 9px 10px; text-align: right; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-right: 1px solid var(--line); }
+    .month-grid { display: grid; grid-template-columns: repeat(7,1fr); grid-auto-rows: minmax(110px, 1fr); min-height: 660px; }
+    .month-cell { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 6px; position: relative; overflow: hidden; }
+    .month-cell.outside { background: #fafafd; color: #b8b8c0; }
+    .month-cell.today { background: #fffdfd; }
+    .month-day-number { display: grid; place-items: center; width: 26px; height: 26px; margin-left: auto; border-radius: 50%; font-size: 12px; font-weight: 650; }
+    .month-cell.today .month-day-number { background: var(--accent); color: #fff; }
+    .month-events { margin-top: 4px; display: grid; gap: 3px; }
+    .month-event {
+      height: 21px; border-radius: 5px; padding: 3px 5px; font-size: 10px; font-weight: 650;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      background: color-mix(in srgb, var(--event-color) 16%, white); border-left: 3px solid var(--event-color);
+      cursor: pointer;
+    }
+    .month-more { font-size: 10px; color: var(--muted); padding-left: 4px; }
+
+    /* Modal */
+    dialog {
+      width: min(620px, calc(100vw - 28px));
+      border: 0; border-radius: 18px; padding: 0; box-shadow: var(--shadow); overflow: hidden;
+    }
+    dialog::backdrop { background: rgba(20,20,24,.35); backdrop-filter: blur(3px); }
+    .modal-head { padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); }
+    .modal-head h2 { margin: 0; font-size: 18px; }
+    .modal-body { padding: 16px 18px; max-height: 70vh; overflow-y: auto; }
+    .modal-actions { padding: 13px 18px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--line); background: var(--panel-2); }
+    .form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .field { display: grid; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { font-size: 12px; font-weight: 700; color: #55555e; }
+    .field input, .field textarea, .field select {
+      width: 100%; border: 1px solid var(--line-strong); border-radius: 10px; padding: 9px 10px; background: #fff; outline: none;
+    }
+    .field input:focus, .field textarea:focus, .field select:focus { border-color: #9999a3; box-shadow: 0 0 0 3px rgba(0,0,0,.04); }
+    .field textarea { min-height: 86px; resize: vertical; }
+    .inline-toggle { display: flex; align-items: center; gap: 8px; padding-top: 3px; }
+    .hint { font-size: 11px; color: var(--muted); line-height: 1.35; }
+    .hidden { display: none !important; }
+
+    .empty-state { padding: 54px 24px; text-align: center; color: var(--muted); }
+    .empty-state strong { display: block; color: var(--text); font-size: 18px; margin-bottom: 5px; }
+
+    @media (max-width: 850px) {
+      :root { --sidebar-w: 0px; }
+      .sidebar { display: none; }
+      .layout { grid-template-columns: 1fr; }
+      .brand span { display: none; }
+      .topbar { grid-template-columns: auto 1fr auto; }
+      .topbar .top-left .btn:not(.icon) { display: none; }
+      .calendar-head { align-items: center; }
+      .search { display: none; }
+      .title-wrap h1 { font-size: 20px; }
+      .view-switch button { padding-inline: 10px; }
+    }
+    :root[data-theme="dark"] { color-scheme: dark; --bg:#101116; --panel:#1b1d25; --panel-2:#222530; --text:#f1f2f6; --muted:#a4a8b5; --line:#343743; --line-strong:#454956; --shadow:0 12px 40px rgba(0,0,0,.35); }
+    [data-theme="dark"] .topbar { background:rgba(27,29,37,.94); }
+    [data-theme="dark"] .btn:hover, [data-theme="dark"] .filter-row:hover { background:#303440; }
+    [data-theme="dark"] .btn.primary { background:#f1f2f6; color:#15161b; border-color:#f1f2f6; }
+    [data-theme="dark"] .view-switch { background:#30333e; }
+    [data-theme="dark"] .view-switch button { color:#b7bbc8; }
+    [data-theme="dark"] .view-switch button.active { background:#515666; color:#fff; }
+    [data-theme="dark"] .search, [data-theme="dark"] .field input, [data-theme="dark"] .field textarea, [data-theme="dark"] .field select { background:#262934; color:var(--text); }
+    [data-theme="dark"] .search:focus { background:#303440; }
+    [data-theme="dark"] .month-cell.outside { background:#171922; color:#757987; }
+    [data-theme="dark"] .month-cell.today { background:#2b2228; }
+    [data-theme="dark"] .event-time, [data-theme="dark"] .event-notes, [data-theme="dark"] .field label, [data-theme="dark"] .hour-label { color:#b2b6c2; }
+    [data-theme="dark"] .month-event { color:#e8eaf2; }
+    #themeBtn { white-space:nowrap; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="top-left">
+      <div class="brand"><div class="brand-mark"></div><span>Block Schedule</span></div>
+      <button class="btn" id="todayBtn">Today</button>
+      <button class="btn icon" id="prevBtn" aria-label="Previous">‹</button>
+      <button class="btn icon" id="nextBtn" aria-label="Next">›</button>
+    </div>
+
+    <div class="view-switch" aria-label="Calendar view">
+      <button data-view="day" class="active">Day</button>
+      <button data-view="week">Week</button>
+      <button data-view="month">Month</button>
+    </div>
+
+    <div class="top-right">
+      <button class="btn" id="themeBtn" type="button" aria-label="Toggle dark mode" aria-pressed="false">☾ Dark</button>
+      <button class="btn primary" id="addBtn">+ Add block</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h3>Show blocks</h3>
+        <div class="filter-list" id="filters"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>Quick actions</h3>
+        <div style="display:grid; gap:8px">
+          <button class="btn" id="showAllBtn">Show all categories</button>
+          <button class="btn" id="focusBtn">Hide Work + Sleep</button>
+          <button class="btn" id="demoBtn">Reload example day</button>
+        </div>
+      </div>
+
+      <div class="mini-note">
+        Daily view shows the detail inside a block, including tasks. Weekly view focuses on exact times. Monthly view stays compact so you can see which days are busy or free.
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="calendar-head">
+        <div class="title-wrap">
+          <div class="eyebrow" id="eyebrow"></div>
+          <h1 id="calendarTitle"></h1>
+        </div>
+        <input id="searchInput" class="search" type="search" placeholder="Search blocks…" />
+      </div>
+      <section class="calendar-shell" id="calendar"></section>
+    </main>
+  </div>
+</div>
+
+<dialog id="blockDialog">
+  <form id="blockForm" method="dialog">
+    <div class="modal-head">
+      <h2 id="dialogTitle">Add block</h2>
+      <button type="button" class="btn icon" id="closeDialog" aria-label="Close">×</button>
+    </div>
+
+    <div class="modal-body">
+      <input type="hidden" id="eventId" />
+      <div class="form-grid">
+        <div class="field full">
+          <label for="titleInput">Block name</label>
+          <input id="titleInput" required placeholder="e.g. Work, dentist, book development" />
+        </div>
+
+        <div class="field">
+          <label for="categoryInput">Category</label>
+          <input id="categoryInput" list="categoryOptions" placeholder="Work" value="Personal" />
+          <datalist id="categoryOptions">
+            <option value="Work"></option>
+            <option value="School"></option>
+            <option value="Appointment"></option>
+            <option value="Event"></option>
+            <option value="Due Date"></option>
+            <option value="Personal"></option>
+            <option value="Travel"></option>
+            <option value="Sleep"></option>
+          </datalist>
+        </div>
+
+        <div class="field">
+          <label>Type</label>
+          <label class="inline-toggle"><input type="checkbox" id="allDayInput" /> All day / due date</label>
+        </div>
+
+        <div class="field">
+          <label for="dateInput">Date</label>
+          <input type="date" id="dateInput" required />
+        </div>
+
+        <div class="field" id="endDateField">
+          <label for="endDateInput">End date</label>
+          <input type="date" id="endDateInput" required />
+        </div>
+
+        <div class="field timed-field">
+          <label for="startTimeInput">Start</label>
+          <input type="time" id="startTimeInput" value="09:00" />
+        </div>
+
+        <div class="field timed-field">
+          <label for="endTimeInput">End</label>
+          <input type="time" id="endTimeInput" value="10:00" />
+        </div>
+
+        <div class="field">
+          <label for="repeatInput">Repeat</label>
+          <select id="repeatInput">
+            <option value="none">Does not repeat</option>
+            <option value="daily">Every day</option>
+            <option value="weekdays">Weekdays</option>
+            <option value="weekly">Every week</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="untilInput">Repeat until <span style="font-weight:400;color:#999">(optional)</span></label>
+          <input type="date" id="untilInput" />
+        </div>
+
+        <div class="field full">
+          <label for="tasksInput">Tasks inside this block</label>
+          <textarea id="tasksInput" placeholder="One task per line\nCheck parts orders\nCall customer\nRestock shelf"></textarea>
+          <div class="hint">Tasks appear as checkboxes in Daily view. Weekly and Monthly views stay compact.</div>
+        </div>
+
+        <div class="field full">
+          <label for="notesInput">Notes</label>
+          <textarea id="notesInput" placeholder="Optional details…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn danger hidden" id="deleteBtn">Delete</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn" id="cancelBtn">Cancel</button>
+      <button type="submit" class="btn primary">Save block</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const THEME_KEY = 'block-schedule-theme-v1';
+  const themeButton = document.getElementById('themeBtn');
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    themeButton.textContent = theme === 'dark' ? '☀ Light' : '☾ Dark';
+    themeButton.setAttribute('aria-pressed', String(theme === 'dark'));
+    localStorage.setItem(THEME_KEY, theme);
+  }
+  applyTheme(localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light');
+  themeButton.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+  const STORAGE_KEY = 'block-schedule-v1';
+  const FILTER_KEY = 'block-schedule-filters-v1';
+  const VIEW_KEY = 'block-schedule-view-v1';
+  const HOUR_H = 72;
+  const knownColors = {
+    'Work': '#3478f6',
+    'School': '#7b61ff',
+    'Appointment': '#ff9500',
+    'Event': '#ff375f',
+    'Due Date': '#af52de',
+    'Personal': '#34c759',
+    'Travel': '#5ac8fa',
+    'Sleep': '#667085'
+  };
+
+  const state = {
+    view: localStorage.getItem(VIEW_KEY) || 'day',
+    anchor: startOfDay(new Date()),
+    events: loadEvents(),
+    hiddenCategories: new Set(JSON.parse(localStorage.getItem(FILTER_KEY) || '[]')),
+    search: ''
+  };
+
+  const calendar = document.getElementById('calendar');
+  const titleEl = document.getElementById('calendarTitle');
+  const eyebrowEl = document.getElementById('eyebrow');
+  const filtersEl = document.getElementById('filters');
+  const dialog = document.getElementById('blockDialog');
+  const form = document.getElementById('blockForm');
+
+  const refs = {
+    id: document.getElementById('eventId'),
+    title: document.getElementById('titleInput'),
+    category: document.getElementById('categoryInput'),
+    allDay: document.getElementById('allDayInput'),
+    date: document.getElementById('dateInput'),
+    endDate: document.getElementById('endDateInput'),
+    startTime: document.getElementById('startTimeInput'),
+    endTime: document.getElementById('endTimeInput'),
+    repeat: document.getElementById('repeatInput'),
+    until: document.getElementById('untilInput'),
+    tasks: document.getElementById('tasksInput'),
+    notes: document.getElementById('notesInput')
+  };
+
+  if (!state.events.length && !localStorage.getItem(STORAGE_KEY)) {
+    state.events = demoEvents(state.anchor);
+    saveEvents();
+  }
+
+  bindUI();
+  render();
+
+  function bindUI() {
+    document.querySelectorAll('[data-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.view = btn.dataset.view;
+        localStorage.setItem(VIEW_KEY, state.view);
+        render();
+      });
+    });
+    document.getElementById('todayBtn').onclick = () => { state.anchor = startOfDay(new Date()); render(); scrollToUsefulTime(); };
+    document.getElementById('prevBtn').onclick = () => move(-1);
+    document.getElementById('nextBtn').onclick = () => move(1);
+    document.getElementById('addBtn').onclick = () => openCreate();
+    document.getElementById('closeDialog').onclick = () => dialog.close();
+    document.getElementById('cancelBtn').onclick = () => dialog.close();
+    document.getElementById('deleteBtn').onclick = deleteCurrent;
+    document.getElementById('searchInput').addEventListener('input', e => { state.search = e.target.value.trim().toLowerCase(); renderCalendar(); });
+    refs.allDay.addEventListener('change', updateAllDayFields);
+    refs.date.addEventListener('change', () => { if (!refs.endDate.value || refs.endDate.value < refs.date.value) refs.endDate.value = refs.date.value; });
+    form.addEventListener('submit', saveFromForm);
+
+    document.getElementById('showAllBtn').onclick = () => {
+      state.hiddenCategories.clear(); saveFilters(); render();
+    };
+    document.getElementById('focusBtn').onclick = () => {
+      state.hiddenCategories.add('Work'); state.hiddenCategories.add('Sleep'); saveFilters(); render();
+    };
+    document.getElementById('demoBtn').onclick = () => {
+      if (confirm('Replace your current blocks with the example schedule?')) {
+        state.events = demoEvents(state.anchor); saveEvents(); state.hiddenCategories.clear(); saveFilters(); render();
+      }
+    };
+
+    document.addEventListener('keydown', e => {
+      if (dialog.open || ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+      if (e.key.toLowerCase() === 'n') openCreate();
+      if (e.key.toLowerCase() === 'd') { state.view = 'day'; render(); }
+      if (e.key.toLowerCase() === 'w') { state.view = 'week'; render(); }
+      if (e.key.toLowerCase() === 'm') { state.view = 'month'; render(); }
+      if (e.key === 'ArrowLeft') move(-1);
+      if (e.key === 'ArrowRight') move(1);
+    });
+  }
+
+  function move(dir) {
+    if (state.view === 'day') state.anchor = addDays(state.anchor, dir);
+    if (state.view === 'week') state.anchor = addDays(state.anchor, dir * 7);
+    if (state.view === 'month') state.anchor = new Date(state.anchor.getFullYear(), state.anchor.getMonth() + dir, 1);
+    render();
+  }
+
+  function render() {
+    document.querySelectorAll('[data-view]').forEach(btn => btn.classList.toggle('active', btn.dataset.view === state.view));
+    renderHeader();
+    renderFilters();
+    renderCalendar();
+    setTimeout(scrollToUsefulTime, 0);
+  }
+
+  function renderHeader() {
+    if (state.view === 'day') {
+      eyebrowEl.textContent = state.anchor.toLocaleDateString(undefined, { weekday: 'long' });
+      titleEl.textContent = state.anchor.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+    } else if (state.view === 'week') {
+      const monday = startOfWeek(state.anchor);
+      const sunday = addDays(monday, 6);
+      eyebrowEl.textContent = 'Monday – Sunday';
+      const sameMonth = monday.getMonth() === sunday.getMonth();
+      titleEl.textContent = sameMonth
+        ? `${monday.toLocaleDateString(undefined,{month:'long'})} ${monday.getDate()}–${sunday.getDate()}, ${sunday.getFullYear()}`
+        : `${monday.toLocaleDateString(undefined,{month:'short',day:'numeric'})} – ${sunday.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`;
+    } else {
+      eyebrowEl.textContent = 'Month overview';
+      titleEl.textContent = state.anchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    }
+  }
+
+  function categories() {
+    const cats = new Set([...Object.keys(knownColors), ...state.events.map(e => e.category || 'Personal')]);
+    return [...cats];
+  }
+
+  function renderFilters() {
+    const counts = {};
+    state.events.forEach(e => counts[e.category] = (counts[e.category] || 0) + 1);
+    filtersEl.innerHTML = categories().map(cat => `
+      <label class="filter-row">
+        <input type="checkbox" data-filter="${escapeHtml(cat)}" ${state.hiddenCategories.has(cat) ? '' : 'checked'} />
+        <span class="dot" style="background:${categoryColor(cat)}"></span>
+        <span class="filter-name">${escapeHtml(cat)}</span>
+        <span class="count">${counts[cat] || 0}</span>
+      </label>`).join('');
+
+    filtersEl.querySelectorAll('[data-filter]').forEach(input => input.addEventListener('change', () => {
+      const cat = input.dataset.filter;
+      if (input.checked) state.hiddenCategories.delete(cat); else state.hiddenCategories.add(cat);
+      saveFilters(); renderCalendar();
+    }));
+  }
+
+  function renderCalendar() {
+    if (state.view === 'day') renderDay();
+    if (state.view === 'week') renderWeek();
+    if (state.view === 'month') renderMonth();
+  }
+
+  function getVisibleOccurrences(rangeStart, rangeEnd) {
+    return getOccurrences(rangeStart, rangeEnd).filter(o => {
+      if (state.hiddenCategories.has(o.category)) return false;
+      if (state.search) {
+        const hay = [o.title, o.category, o.notes, ...(o.tasks || [])].join(' ').toLowerCase();
+        if (!hay.includes(state.search)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderDay() {
+    const dayStart = startOfDay(state.anchor);
+    const dayEnd = addDays(dayStart, 1);
+    const occ = getVisibleOccurrences(dayStart, dayEnd);
+    const allDay = occ.filter(o => o.allDay);
+    const timed = layoutEvents(occ.filter(o => !o.allDay), dayStart, dayEnd);
+
+    calendar.innerHTML = `
+      <div class="day-view">
+        <div class="all-day-row">
+          <div class="all-day-label">all-day</div>
+          <div class="all-day-events">${allDay.map(pillHtml).join('') || '<span style="font-size:11px;color:#aaa;padding:6px">No all-day blocks</span>'}</div>
+        </div>
+        <div class="time-grid">
+          <div class="time-labels">${hourLabels()}</div>
+          <div class="grid-area" id="dayGrid"></div>
+        </div>
+      </div>`;
+
+    const grid = document.getElementById('dayGrid');
+    grid.innerHTML = timed.map(o => eventHtml(o, dayStart, true)).join('');
+    addNowLine(grid, dayStart);
+    bindEventClicks(calendar);
+
+    grid.addEventListener('dblclick', e => {
+      if (e.target.closest('.event')) return;
+      const rect = grid.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const mins = Math.max(0, Math.min(1430, Math.round((y / HOUR_H * 60) / 15) * 15));
+      openCreate(dayStart, mins);
+    });
+  }
+
+  function renderWeek() {
+    const monday = startOfWeek(state.anchor);
+    const end = addDays(monday, 7);
+    const occ = getVisibleOccurrences(monday, end);
+    const days = Array.from({length:7}, (_,i) => addDays(monday,i));
+
+    calendar.innerHTML = `
+      <div class="week-view">
+        <div class="week-head">
+          <div class="week-head-spacer"></div>
+          ${days.map(d => `<div class="week-day-head ${isToday(d)?'today':''}"><div class="dow">${d.toLocaleDateString(undefined,{weekday:'short'})}</div><div class="dom">${d.getDate()}</div></div>`).join('')}
+        </div>
+        <div class="week-allday">
+          <div class="week-allday-label">all-day</div>
+          ${days.map(d => `<div class="week-allday-cell">${occ.filter(o => o.allDay && sameDay(o.occStart,d)).map(pillHtml).join('')}</div>`).join('')}
+        </div>
+        <div class="week-grid">
+          <div class="week-time-labels">${hourLabels(64)}</div>
+          <div class="week-columns">
+            ${days.map(d => {
+              const dayEnd = addDays(d,1);
+              const events = layoutEvents(occ.filter(o => !o.allDay && o.occStart < dayEnd && o.occEnd > d), d, dayEnd);
+              return `<div class="week-col" data-date="${toDateInput(d)}">${events.map(o => eventHtml(o,d,false)).join('')}${nowLineHtml(d)}</div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    bindEventClicks(calendar);
+    calendar.querySelectorAll('.week-col').forEach(col => {
+      col.addEventListener('dblclick', e => {
+        if (e.target.closest('.event')) return;
+        const date = parseDateOnly(col.dataset.date);
+        const rect = col.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const mins = Math.max(0, Math.min(1430, Math.round((y / HOUR_H * 60) / 15) * 15));
+        openCreate(date, mins);
+      });
+    });
+  }
+
+  function renderMonth() {
+    const first = new Date(state.anchor.getFullYear(), state.anchor.getMonth(), 1);
+    const gridStart = startOfWeek(first);
+    const gridEnd = addDays(gridStart, 42);
+    const occ = getVisibleOccurrences(gridStart, gridEnd);
+    const days = Array.from({length:42}, (_,i) => addDays(gridStart,i));
+
+    calendar.innerHTML = `
+      <div class="month-view">
+        <div class="month-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x => `<div>${x}</div>`).join('')}</div>
+        <div class="month-grid">
+          ${days.map(d => {
+            const dayOcc = occ.filter(o => o.occStart < addDays(d,1) && o.occEnd > d).sort((a,b)=>a.occStart-b.occStart);
+            const outside = d.getMonth() !== state.anchor.getMonth();
+            return `<div class="month-cell ${outside?'outside':''} ${isToday(d)?'today':''}" data-month-date="${toDateInput(d)}">
+              <div class="month-day-number">${d.getDate()}</div>
+              <div class="month-events">
+                ${dayOcc.slice(0,5).map(o => `<div class="month-event" data-event-id="${o.sourceId}" data-occurrence="${toDateInput(o.occStart)}" style="--event-color:${categoryColor(o.category)}" title="${escapeHtml(o.title)}">${escapeHtml(o.title)}</div>`).join('')}
+                ${dayOcc.length > 5 ? `<div class="month-more">+${dayOcc.length-5} more</div>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+
+    bindEventClicks(calendar);
+    calendar.querySelectorAll('[data-month-date]').forEach(cell => {
+      cell.addEventListener('dblclick', e => {
+        if (e.target.closest('.month-event')) return;
+        state.anchor = parseDateOnly(cell.dataset.monthDate);
+        openCreate(state.anchor, 9*60);
+      });
+    });
+  }
+
+  function eventHtml(o, dayStart, detailed) {
+    const visibleStart = o.occStart < dayStart ? dayStart : o.occStart;
+    const visibleEnd = o.occEnd > addDays(dayStart,1) ? addDays(dayStart,1) : o.occEnd;
+    const top = minutesSinceDayStart(visibleStart, dayStart) / 60 * HOUR_H;
+    const height = Math.max(20, (visibleEnd - visibleStart) / 36e5 * HOUR_H);
+    const gap = 4;
+    const width = `calc(${100/o._lanes}% - ${gap}px)`;
+    const left = `calc(${o._lane * 100/o._lanes}% + ${gap/2}px)`;
+    const tasksState = getTaskState(o, toDateInput(o.occStart));
+    const taskHtml = detailed && height > 64 && o.tasks?.length ? `<div class="event-tasks">${o.tasks.slice(0,5).map((t,i)=>`<label class="task-check ${tasksState[i]?'done':''}" onclick="event.stopPropagation()"><input type="checkbox" data-task-event="${o.sourceId}" data-task-occ="${toDateInput(o.occStart)}" data-task-index="${i}" ${tasksState[i]?'checked':''}><span>${escapeHtml(t)}</span></label>`).join('')}</div>` : '';
+    const notes = detailed && height > 120 && o.notes ? `<div class="event-notes">${escapeHtml(o.notes)}</div>` : '';
+    return `<div class="event" data-event-id="${o.sourceId}" data-occurrence="${toDateInput(o.occStart)}" style="top:${top}px;height:${height}px;left:${left};width:${width};--event-color:${categoryColor(o.category)}" title="${escapeHtml(o.title)}">
+      <div class="event-title">${escapeHtml(o.title)}</div>
+      <div class="event-time">${formatTime(o.occStart)}–${formatTime(o.occEnd)} · ${escapeHtml(o.category)}</div>
+      ${taskHtml}${notes}
+    </div>`;
+  }
+
+  function pillHtml(o) {
+    return `<div class="pill" data-event-id="${o.sourceId}" data-occurrence="${toDateInput(o.occStart)}" style="--event-color:${categoryColor(o.category)}">${escapeHtml(o.title)}</div>`;
+  }
+
+  function bindEventClicks(scope) {
+    scope.querySelectorAll('[data-event-id]').forEach(el => el.addEventListener('click', e => {
+      if (e.target.matches('[data-task-event]')) return;
+      const ev = state.events.find(x => x.id === el.dataset.eventId);
+      if (ev) openEdit(ev);
+    }));
+    scope.querySelectorAll('[data-task-event]').forEach(cb => cb.addEventListener('change', e => {
+      toggleTask(cb.dataset.taskEvent, cb.dataset.taskOcc, Number(cb.dataset.taskIndex), cb.checked);
+    }));
+  }
+
+  function toggleTask(eventId, occDate, index, checked) {
+    const ev = state.events.find(e => e.id === eventId);
+    if (!ev) return;
+    ev.taskState ||= {};
+    ev.taskState[occDate] ||= [];
+    ev.taskState[occDate][index] = checked;
+    saveEvents();
+    renderCalendar();
+  }
+
+  function getTaskState(o, occDate) {
+    const ev = state.events.find(e => e.id === o.sourceId);
+    return ev?.taskState?.[occDate] || [];
+  }
+
+  function openCreate(date = state.anchor, minutes = 9*60) {
+    document.getElementById('dialogTitle').textContent = 'Add block';
+    document.getElementById('deleteBtn').classList.add('hidden');
+    refs.id.value = '';
+    refs.title.value = '';
+    refs.category.value = 'Personal';
+    refs.allDay.checked = false;
+    refs.date.value = toDateInput(date);
+    refs.endDate.value = toDateInput(date);
+    refs.startTime.value = minutesToTime(minutes);
+    refs.endTime.value = minutesToTime(Math.min(minutes + 60, 23*60+59));
+    refs.repeat.value = 'none';
+    refs.until.value = '';
+    refs.tasks.value = '';
+    refs.notes.value = '';
+    updateAllDayFields();
+    dialog.showModal();
+    setTimeout(() => refs.title.focus(), 30);
+  }
+
+  function openEdit(ev) {
+    document.getElementById('dialogTitle').textContent = 'Edit block';
+    document.getElementById('deleteBtn').classList.remove('hidden');
+    const s = new Date(ev.start);
+    const e = new Date(ev.end);
+    refs.id.value = ev.id;
+    refs.title.value = ev.title;
+    refs.category.value = ev.category;
+    refs.allDay.checked = !!ev.allDay;
+    refs.date.value = toDateInput(s);
+    refs.endDate.value = ev.allDay ? toDateInput(addDays(e,-1)) : toDateInput(e);
+    refs.startTime.value = toTimeInput(s);
+    refs.endTime.value = toTimeInput(e);
+    refs.repeat.value = ev.repeat || 'none';
+    refs.until.value = ev.until || '';
+    refs.tasks.value = (ev.tasks || []).join('\n');
+    refs.notes.value = ev.notes || '';
+    updateAllDayFields();
+    dialog.showModal();
+  }
+
+  function updateAllDayFields() {
+    document.querySelectorAll('.timed-field').forEach(x => x.classList.toggle('hidden', refs.allDay.checked));
+    document.getElementById('endDateField').classList.toggle('hidden', refs.allDay.checked);
+  }
+
+  function saveFromForm(e) {
+    e.preventDefault();
+    const title = refs.title.value.trim();
+    if (!title) return;
+    const allDay = refs.allDay.checked;
+    let start, end;
+    if (allDay) {
+      start = parseDateOnly(refs.date.value);
+      end = addDays(start, 1);
+    } else {
+      start = combineDateTime(refs.date.value, refs.startTime.value);
+      end = combineDateTime(refs.endDate.value || refs.date.value, refs.endTime.value);
+      if (end <= start) end = addDays(end, 1);
+    }
+
+    const existing = state.events.find(x => x.id === refs.id.value);
+    const next = {
+      id: existing?.id || crypto.randomUUID(),
+      title,
+      category: refs.category.value.trim() || 'Personal',
+      allDay,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      repeat: refs.repeat.value,
+      until: refs.until.value,
+      tasks: refs.tasks.value.split('\n').map(x => x.trim()).filter(Boolean),
+      notes: refs.notes.value.trim(),
+      taskState: existing?.taskState || {}
+    };
+
+    if (existing) Object.assign(existing, next); else state.events.push(next);
+    saveEvents();
+    dialog.close();
+    render();
+  }
+
+  function deleteCurrent() {
+    const id = refs.id.value;
+    if (!id) return;
+    if (!confirm('Delete this block?')) return;
+    state.events = state.events.filter(e => e.id !== id);
+    saveEvents();
+    dialog.close();
+    render();
+  }
+
+  function getOccurrences(rangeStart, rangeEnd) {
+    const out = [];
+    for (const ev of state.events) {
+      const baseStart = new Date(ev.start);
+      const baseEnd = new Date(ev.end);
+      const duration = baseEnd - baseStart;
+      const repeat = ev.repeat || 'none';
+      const until = ev.until ? addDays(parseDateOnly(ev.until), 1) : null;
+
+      if (repeat === 'none') {
+        if (baseStart < rangeEnd && baseEnd > rangeStart) out.push(makeOccurrence(ev, baseStart, baseEnd));
+        continue;
+      }
+
+      let cursor = new Date(baseStart);
+      if (repeat === 'daily' || repeat === 'weekdays') {
+        const deltaDays = Math.floor((startOfDay(rangeStart) - startOfDay(baseStart)) / 86400000) - 1;
+        if (deltaDays > 0) cursor = addDays(baseStart, deltaDays);
+        while (cursor < rangeEnd) {
+          const validWeekday = repeat !== 'weekdays' || (cursor.getDay() !== 0 && cursor.getDay() !== 6);
+          const occEnd = new Date(cursor.getTime() + duration);
+          if (validWeekday && (!until || cursor < until) && cursor < rangeEnd && occEnd > rangeStart) out.push(makeOccurrence(ev, cursor, occEnd));
+          cursor = addDays(cursor, 1);
+          if (until && cursor >= until) break;
+        }
+      }
+
+      if (repeat === 'weekly') {
+        const weeks = Math.max(0, Math.floor((rangeStart - baseStart) / (7*86400000)) - 1);
+        cursor = addDays(baseStart, weeks * 7);
+        while (cursor < rangeEnd) {
+          const occEnd = new Date(cursor.getTime() + duration);
+          if ((!until || cursor < until) && occEnd > rangeStart) out.push(makeOccurrence(ev, cursor, occEnd));
+          cursor = addDays(cursor, 7);
+          if (until && cursor >= until) break;
+        }
+      }
+    }
+    return out;
+  }
+
+  function makeOccurrence(ev, start, end) {
+    return { ...ev, sourceId: ev.id, occStart: new Date(start), occEnd: new Date(end) };
+  }
+
+  function layoutEvents(events, dayStart, dayEnd) {
+    const clipped = events.map(o => ({...o, _clipStart: o.occStart < dayStart ? dayStart : o.occStart, _clipEnd: o.occEnd > dayEnd ? dayEnd : o.occEnd})).sort((a,b)=>a._clipStart-b._clipStart || a._clipEnd-b._clipEnd);
+    const groups = [];
+    let group = [], groupMaxEnd = null;
+    for (const ev of clipped) {
+      if (!group.length || ev._clipStart < groupMaxEnd) {
+        group.push(ev);
+        if (!groupMaxEnd || ev._clipEnd > groupMaxEnd) groupMaxEnd = ev._clipEnd;
+      } else {
+        groups.push(group); group = [ev]; groupMaxEnd = ev._clipEnd;
+      }
+    }
+    if (group.length) groups.push(group);
+
+    const out = [];
+    for (const g of groups) {
+      const laneEnds = [];
+      for (const ev of g) {
+        let lane = laneEnds.findIndex(end => end <= ev._clipStart);
+        if (lane === -1) lane = laneEnds.length;
+        laneEnds[lane] = ev._clipEnd;
+        ev._lane = lane;
+      }
+      g.forEach(ev => { ev._lanes = laneEnds.length; out.push(ev); });
+    }
+    return out;
+  }
+
+  function addNowLine(grid, day) {
+    if (!isToday(day)) return;
+    const now = new Date();
+    const mins = now.getHours()*60 + now.getMinutes();
+    const line = document.createElement('div');
+    line.className = 'now-line';
+    line.style.top = `${mins/60*HOUR_H}px`;
+    line.innerHTML = `<span class="now-time">${formatTime(now)}</span>`;
+    grid.appendChild(line);
+  }
+
+  function nowLineHtml(day) {
+    if (!isToday(day)) return '';
+    const now = new Date();
+    const mins = now.getHours()*60 + now.getMinutes();
+    return `<div class="now-line" style="top:${mins/60*HOUR_H}px"></div>`;
+  }
+
+  function hourLabels() {
+    return Array.from({length:24},(_,h)=>`<div class="hour-label"><span>${h===0?'12 AM':h<12?`${h} AM`:h===12?'12 PM':`${h-12} PM`}</span></div>`).join('');
+  }
+
+  function scrollToUsefulTime() {
+    if (!['day','week'].includes(state.view)) return;
+    const today = isToday(state.anchor) || (state.view === 'week' && inSameWeek(new Date(), state.anchor));
+    const hour = today ? Math.max(0, new Date().getHours() - 2) : 7;
+    calendar.scrollTop = hour * HOUR_H;
+  }
+
+  function demoEvents(day) {
+    const d = startOfDay(day);
+    return [
+      makeEvent('Go to work', 'Travel', d, 8,30, d,9,30, ['Grab keys / bag'], ''),
+      makeEvent('Work', 'Work', d,9,30, d,18,0, ['Check manager assignments','Follow up on parts orders','Restock priority items'], 'Use the task list here for whatever your manager assigns that day.'),
+      makeEvent('Go home', 'Travel', d,18,0, d,19,0, [], ''),
+      makeEvent('Book development', 'Personal', d,19,0, d,21,0, ['Outline next scene','Revise character notes'], ''),
+      makeEvent('Sleep', 'Sleep', d,21,0, addDays(d,1),6,0, [], '')
+    ];
+  }
+
+  function makeEvent(title, category, sd, sh, sm, ed, eh, em, tasks=[], notes='') {
+    const s = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate(), sh, sm);
+    const e = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate(), eh, em);
+    return { id: crypto.randomUUID(), title, category, allDay:false, start:s.toISOString(), end:e.toISOString(), repeat:'none', until:'', tasks, notes, taskState:{} };
+  }
+
+  function saveEvents() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.events)); }
+  function loadEvents() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
+  function saveFilters() { localStorage.setItem(FILTER_KEY, JSON.stringify([...state.hiddenCategories])); }
+
+  function categoryColor(cat) {
+    if (knownColors[cat]) return knownColors[cat];
+    let hash = 0; for (let i=0;i<cat.length;i++) hash = cat.charCodeAt(i) + ((hash<<5)-hash);
+    return `hsl(${Math.abs(hash)%360} 62% 48%)`;
+  }
+
+  function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+  function startOfWeek(d) { const x = startOfDay(d); const dow = x.getDay(); const diff = dow === 0 ? -6 : 1-dow; return addDays(x,diff); }
+  function inSameWeek(a,b) { return sameDay(startOfWeek(a), startOfWeek(b)); }
+  function sameDay(a,b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+  function isToday(d) { return sameDay(d,new Date()); }
+  function minutesSinceDayStart(d, day) { return (d - day) / 60000; }
+  function toDateInput(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  function toTimeInput(d) { return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+  function parseDateOnly(s) { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); }
+  function combineDateTime(ds, ts) { const [y,m,d] = ds.split('-').map(Number); const [h,min] = ts.split(':').map(Number); return new Date(y,m-1,d,h,min); }
+  function minutesToTime(mins) { return `${String(Math.floor(mins/60)%24).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`; }
+  function formatTime(d) { return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}).replace(' ',''); }
+  function escapeHtml(v='') { return String(v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c])); }
+})();
+</script>
+</body>
+</html>
