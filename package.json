@@ -1,0 +1,9 @@
+{
+  "name": "schedule-it-platform",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {},
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0"
+  }
+}
