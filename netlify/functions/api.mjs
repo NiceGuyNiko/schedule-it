@@ -51,7 +51,7 @@ async function handle(event){
    const {error:profileError}=await db.from('profiles').insert({id:uid,username,role:isBootstrap?'admin':'user'});
    if(profileError){await db.auth.admin.deleteUser(uid);return json(409,{error:'Username unavailable'});}
    if(invitation){
-    const {data:claimed,error:claimError}=await db.from('invitations').update({used_by:uid,used_at:new Date().toISOString()}).eq('id',invitation.id).is('used_at',null).select('id').maybeSingle();
+    const {data:claimed,error:claimError}=await db.rpc('claim_invitation',{p_hash:hash(invite),p_user:uid});
     if(claimError||!claimed){await db.auth.admin.deleteUser(uid);return json(409,{error:'Invitation already used'});}
    }
    return json(201,{ok:true});
