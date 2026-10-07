@@ -26,3 +26,6 @@ Do not test real passwords or invitation codes on a public preview until the bra
 - The initial unique admin-role index intentionally permits only one administrator; revisit before implementing multiple admins.
 - Netlify production-only secrets do not automatically apply to development branch deployments.
 - Do not merge to main until tests pass against a configured staging deployment.
+
+## Deployment trigger
+- Branch deploy requested after enabling feature/accounts-platform in Netlify.
